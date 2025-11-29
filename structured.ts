@@ -43,7 +43,6 @@ location.address.addressCountry = 'US';
 
 schema.location = location;
 
-schema.eventAttendanceMode = [EventAttendanceModeEnumeration.OfflineEventAttendanceMode,EventAttendanceModeEnumeration.OnlineEventAttendanceMode];
 schema.eventAttendanceMode = EventAttendanceModeEnumeration.OfflineEventAttendanceMode;
 
 
