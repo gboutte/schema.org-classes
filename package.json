@@ -2,7 +2,8 @@
   "name": "schema.org-classes",
   "version": "1.0.0",
   "scripts": {
-    "start": "tsx index.ts"
+    "start": "tsx index.ts",
+    "sd": "tsx structured.ts"
   },
   "author": "",
   "license": "ISC",
