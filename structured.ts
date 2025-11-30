@@ -6,6 +6,7 @@ import {PostalAddressSchema} from "./out/classes/PostalAddress.schema";
 import {EventAttendanceModeEnumeration} from "./out/interfaces/EventAttendanceModeEnumeration";
 import {PlaceSchema} from "./out/classes/Place.schema";
 import {ItemAvailability} from "./out/interfaces/ItemAvailability";
+import {EventStatusType} from "./out";
 
 const service = new StructuredDataService();
 
@@ -20,7 +21,7 @@ schema.performer = new PersonSchema();
 schema.performer.name = 'Performer Name';
 schema.description = 'Event Description';
 schema.image ='https://example.com/image.jpg';
-schema.eventStatus = 'Scheduled';
+schema.eventStatus = EventStatusType.EventScheduled;
 schema.startDate = new Date();
 
 const offer = new OfferSchema();

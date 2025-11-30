@@ -78,29 +78,68 @@ type GraphReference = {
 }
 
 /**
+ * Sanitize a class name to be a valid TypeScript identifier
+ * Prefixes names that start with a number with an underscore
+ */
+function sanitizeClassName(name: string): string {
+    // Check if the name starts with a digit
+    if (/^[0-9]/.test(name)) {
+        return '_' + name;
+    }
+    return name;
+}
+
+/**
  * Extract name from rdfs:label or fallback to @id
  */
 function extractName(label: RdfsLabel | undefined, id: string): string {
+    let name: string;
     if (label) {
         if (typeof label === 'string') {
-            return label;
+            name = label;
         } else {
-            return label['@value'];
+            name = label['@value'];
         }
+    } else {
+        name = id;
     }
-    return id;
+    return sanitizeClassName(name);
 }
 
 /**
  * Check if a class is an enumeration
  */
-function isEnumeration(graphClass: GraphClassItem): boolean {
+function isEnumeration(graphClass: GraphClassItem, allClasses: GraphClassItem[]): boolean {
     const types = Array.isArray(graphClass['@type']) ? graphClass['@type'] : [graphClass['@type']];
-    return types.includes('rdfs:Class') &&
-           (graphClass['rdfs:subClassOf'] !== undefined &&
-            (Array.isArray(graphClass['rdfs:subClassOf'])
-                ? graphClass['rdfs:subClassOf'].some(ref => ref['@id'] === 'schema:Enumeration')
-                : graphClass['rdfs:subClassOf']['@id'] === 'schema:Enumeration'));
+
+    const isClass = types.includes('rdfs:Class');
+
+    const subClassOf = graphClass['rdfs:subClassOf'];
+
+    let parents : GraphReference[];
+    if(subClassOf !== undefined){
+        if(Array.isArray(subClassOf)){
+            parents = subClassOf;
+        }else{
+            parents = [subClassOf];
+        }
+    }else{
+        parents = [];
+    }
+
+    const parentsClassesItems : GraphClassItem[] = [];
+    for (const parent of parents) {
+        const parentClass = allClasses.find(el => el['@id'] === parent['@id']);
+        if (parentClass) {
+            parentsClassesItems.push(parentClass);
+        }
+    }
+
+    const isEnum = parents.some((parent) => parent['@id'] === 'schema:Enumeration')
+    const isParentEnum = parentsClassesItems.some(parent => isEnumeration(parent,allClasses));
+
+
+    return isClass && (isEnum || isParentEnum);
 }
 
 function parseClass(
@@ -126,7 +165,7 @@ function parseClass(
         }
 
         const name = extractName(graphSchemaClass["rdfs:label"], graphSchemaClass['@id']);
-        const isEnum = isEnumeration(graphSchemaClass);
+        const isEnum = isEnumeration(graphSchemaClass,classes);
 
         classIdMap[graphSchemaClass['@id']] ={
             name: name,
@@ -227,19 +266,54 @@ function generatePropertyType(propType: GraphReference[] | string, currentClassN
                 return `${primitive} | ${primitive}[]`;
             } else {
 
-                const classData =  allClasses[ref['@id']];
+                const classData:SchemaClass =  allClasses[ref['@id']] as SchemaClass;
                 const className =classData?.name;
                 const isEnum = classData?.isEnumeration ?? false;
                 if (className === undefined) {
                     console.error('Type not found for reference:', ref);
                     return undefined;
                 } else {
-                    if (currentClassName !== className) {
+                    if (currentClassName !== className && (!classData.isEnumeration || classData.enumValues.length > 0)) {
                         listToImport.push(buildImport(className,importPath ? importPath+className : null));
                     }
                 }
                 if(isEnum){
-                    return `${className}`;
+                    const parents = getAllParents(classData as SchemaClass,allClasses);
+                    const children = getAllChildren(classData as SchemaClass,allClasses);
+
+                    const enumParents = parents
+                        .filter(parent => {
+                            const classData = allClasses[parent['@id']];
+                            return classData && classData.isEnumeration && classData.enumValues.length > 0
+                        })
+                        .map(parent => allClasses[parent['@id']]?.name);
+
+                    const enumChildren = children
+                        .filter(child =>{
+                            const classData = allClasses[child['@id']];
+
+                            return classData && classData.isEnumeration && classData.enumValues.length > 0
+                        })
+                        .map(child => allClasses[child['@id']]?.name);
+
+
+                    // We get the parents enum also
+                    const types = [...enumParents,...enumChildren].filter((classname) => classname !== undefined);
+
+                    for(const typeToImport of types){
+
+                        listToImport.push(buildImport(typeToImport,importPath ? importPath+typeToImport : null));
+                    }
+
+                    if(classData && classData.enumValues.length > 0){
+                        types.push(className)
+                    }
+
+                    if(types.length === 0){
+                        return 'any';
+                    }
+
+                    return types.join(' | ');
                 }else {
                     // For class types, allow both single instance and array
                     return `${className} | ${className}[]`;
@@ -277,6 +351,25 @@ function getAllParents(classObj: SchemaClass, allClasses: Record<string, SchemaC
     }
 
     return Array.from(new Set(allParents)).sort();;
+}
+
+function getAllChildren(classObj: SchemaClass, allClasses: Record<string, SchemaClass>):GraphReference[]{
+    const allChildren:GraphReference[] = [];
+
+    for(const schemaClass of Object.values(allClasses)){
+        const parents = schemaClass.parent;
+        if(parents){
+            if(parents.some(parent => parent['@id'] === classObj.id)){
+                allChildren.push({
+                    '@id': schemaClass.id,
+                });
+                allChildren.push(...getAllChildren(schemaClass,allClasses))
+            }
+        }
+    }
+
+
+    return allChildren;
 }
 
 
@@ -333,8 +426,8 @@ function generateClasseTs(classObj: SchemaClass,allClasses:Record<string, Schema
     code += `/**\n * ${classObj.comment || ''}\n */\n`;
 
 
-    listToImport.push(buildImport('SchemaInterface','classes/schema.interface',true));
-    listToImport.push(buildImport('SchemaMetadata','classes/schema-metadata',true));
+    listToImport.push(buildImport('SchemaInterface','../../classes/schema.interface',true));
+    listToImport.push(buildImport('SchemaMetadata','../../classes/schema-metadata',true));
     listToImport.push(buildImport(name,`../interfaces/${name}`));
 
     code += `export class ${name}Schema`;
@@ -351,7 +444,7 @@ function generateClasseTs(classObj: SchemaClass,allClasses:Record<string, Schema
     code += `  public schema_metadata: SchemaMetadata = {\n`;
     code += `    id: '${classObj.id}',\n`;
     code += `    label: '${classObj.name}',\n`;
-    code += `    subClassOf: [${classObj.parent?.map((parent)=> `'${parent["@id"]}'`).join(',')}],\n`;
+    code += `    subClassOf: [${(classObj.parent?.map((parent)=> `'${parent["@id"]}'`).join(',')) || ''}],\n`;
     code += `  };\n\n`;
 
     // Add all properties from the interface (including inherited ones)
@@ -360,7 +453,7 @@ function generateClasseTs(classObj: SchemaClass,allClasses:Record<string, Schema
             throw new Error(`Property name is not a string: ${JSON.stringify(prop.name)}`);
         }
 
-        const typeStr = generatePropertyType(prop.type, name, allClasses, listToImport, `out/interfaces/`);
+        const typeStr = generatePropertyType(prop.type, name, allClasses, listToImport, `../interfaces/`);
 
         // Use JSDoc format for better IDE support
         code += `  /**\n   * ${prop.comment || 'No description available'}\n   */\n`;
@@ -454,7 +547,8 @@ function generateInterfaceTs(classObj: SchemaClass,allClasses:Record<string, Sch
                 // Don't extend Enumeration base class
                 if (parentObj.name !== 'Enumeration') {
                     parentClasses.push(parentObj.name)
-                    listToImport.push(buildImport(parentObj.name));
+                    // listToImport.push(buildImport(parentObj.name));
+                    listToImport.push(buildImport(parentObj.name,`./${parentObj.name}`));
                 }
             }else{
                 if(schemaTypeToPrimitive(parent['@id']) === null){
@@ -463,7 +557,9 @@ function generateInterfaceTs(classObj: SchemaClass,allClasses:Record<string, Sch
             }
         }
 
-        code += ` extends ${parentClasses.join(', ')}`;
+        if(parentClasses.length > 0) {
+            code += ` extends ${parentClasses.join(', ')}`;
+        }
 
 
     }
@@ -526,6 +622,8 @@ function schemaTypeToPrimitive(typeId:string):string|null{
             return 'string';
         case 'schema:PronounceableText':
             return 'string';
+        case 'schema:DataTypeSchema':
+            return 'string';
         default:
             return null; // Return as is for non-primitive types
     }
@@ -569,8 +667,10 @@ async function main() {
             const filePathClass = path.join(outDirClasses, `${classObj.name}.schema.ts`);
             try {
                 if(classObj.isEnumeration){
-                    const enumDef = generateEnumTs(classObj, classes);
-                    await fs.promises.writeFile(filePath, enumDef, { encoding: 'utf-8' });
+                    if(classObj.enumValues.length > 0) {
+                        const enumDef = generateEnumTs(classObj, classes);
+                        await fs.promises.writeFile(filePath, enumDef, {encoding: 'utf-8'});
+                    }
 
                 }else{
                     const ifaceDef = generateInterfaceTs(classObj, classes);
@@ -612,9 +712,34 @@ function generateIndexFile(classes: Record<string, SchemaClass>): string {
     content += ' * Auto-generated index file for schema.org classes\n';
     content += ' * This file exports all generated schema.org TypeScript classes\n';
     content += ' */\n\n';
+    //
+    // for (const className of classNames) {
+    //     content += `export type { ${className} } from './interfaces/${className}';\n`;
+    // }
 
-    for (const className of classNames) {
-        content += `export { ${className} } from './${className}';\n`;
+    content += '\n\n/**\n';
+    content += ' * Interfaces\n';
+    content += ' */\n';
+    for(const schemaClass of Object.values(classes)){
+        if(!schemaClass.isEnumeration){
+            content += `export type { ${schemaClass.name} } from './interfaces/${schemaClass.name}';\n`;
+        }
+    }
+    content += '\n\n/**\n';
+    content += ' * Schema classes\n';
+    content += ' */\n';
+    for(const schemaClass of Object.values(classes)){
+        if(!schemaClass.isEnumeration){
+            content += `export { ${schemaClass.name}Schema } from './classes/${schemaClass.name}.schema';\n`;
+        }
+    }
+    content += '\n\n/**\n';
+    content += ' * Enums\n';
+    content += ' */\n';
+    for(const schemaClass of Object.values(classes)){
+        if(schemaClass.isEnumeration && schemaClass.enumValues.length > 0){
+            content += `export { ${schemaClass.name} } from './interfaces/${schemaClass.name}';\n`;
+        }
     }
 
     return content;
