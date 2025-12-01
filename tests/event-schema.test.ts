@@ -24,7 +24,7 @@ describe('Event schema', () => {
         schema.description = 'Event Description';
         schema.image ='https://example.com/image.jpg';
         schema.eventStatus = EventStatusType.EventScheduled;
-        schema.startDate = new Date("2025-12-01T12:00:00");
+        schema.startDate = new Date("2025-12-01T11:00:00.000Z");
 
         const jsonString:string = service.getStructuredDataJsonString(schema)
         const jsonData:any = service.getStructuredData(schema)
@@ -82,12 +82,12 @@ describe('Event schema', () => {
         schema.description = 'Event Description';
         schema.image ='https://example.com/image.jpg';
         schema.eventStatus = EventStatusType.EventScheduled;
-        schema.startDate = new Date("2025-12-01T21:00:00");
+        schema.startDate = new Date("2025-12-01T20:00:00.000Z");
 
         const offer = new OfferSchema();
         offer.price = 100;
         offer.priceCurrency = "EUR";
-        offer.validFrom = new Date("2025-12-01T12:50:00");
+        offer.validFrom = new Date("2025-12-01T11:50:00.000Z");
         offer.url = 'http://google.fr';
         offer.availability = ItemAvailability.InStock;
 
