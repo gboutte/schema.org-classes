@@ -49,5 +49,5 @@ schema.eventAttendanceMode = EventAttendanceModeEnumeration.OfflineEventAttendan
 
 
 
-console.log(service.buildStructuredData(schema));
+console.log(service.getStructuredDataJsonString(schema));
 

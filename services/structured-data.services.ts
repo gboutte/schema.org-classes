@@ -2,7 +2,7 @@ import type {SchemaInterface} from "../classes/schema.interface";
 
 export class StructuredDataService {
 
-    getJsonProperties(schema:SchemaInterface){
+    private getJsonProperties(schema:SchemaInterface){
         const keys = Object.keys(schema);
         const jsonProperties:any = {};
         for (const key of keys) {
@@ -41,14 +41,21 @@ export class StructuredDataService {
                'id' in value.schema_metadata;
     }
 
-    buildStructuredData(schema:SchemaInterface){
+    getStructuredData(schema:SchemaInterface):any{
         const jsonData = this.getJsonProperties(schema);
         jsonData['@context'] = 'https://schema.org';
 
-        console.log(jsonData)
+        //Order data
+        const orderedData:any = {};
+        const orderedKeys = Object.keys(jsonData).sort();
+        for (const key of orderedKeys) {
+            orderedData[key] = jsonData[key];
+        }
 
-        return JSON.stringify(jsonData);
+        return orderedData;
+    }
+    getStructuredDataJsonString(schema:SchemaInterface):string{
 
-
+        return JSON.stringify(this.getStructuredData(schema));
     }
 }

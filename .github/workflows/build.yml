@@ -1,0 +1,40 @@
+name: PR Lint backend checker
+
+on:
+  pull_request:
+    types: [edited, synchronize, opened, reopened]
+  push:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build-check:
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install packages
+        run: |
+          npm install
+
+      - name: Code Format
+        id: codeFormat
+        run: |
+          npm run start
+      - name: Tsc
+        run: |
+          npx tsc --noEmit
+
+
