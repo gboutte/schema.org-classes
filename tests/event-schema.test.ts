@@ -114,7 +114,6 @@ describe('Event schema', () => {
 
         expect(jsonStringified).toEqual(jsonString)
 
-        console.log(jsonString)
 
         const expectedObject = {
             '@context': 'https://schema.org',
