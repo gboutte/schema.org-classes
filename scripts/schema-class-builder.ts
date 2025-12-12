@@ -225,7 +225,7 @@ export class SchemaClassBuilder {
       ) || [];
 
     let separator: string = ', ';
-    const totalLength:number =
+    const totalLength: number =
       subClassOfLines.length + subClassList.join(`, `).length + `],`.length;
 
     if (totalLength > 200) {
