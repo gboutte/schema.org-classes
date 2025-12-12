@@ -19,7 +19,7 @@ module.exports = defineConfig([
 
         files: ['**/*.ts'],
         ignores: [
-            'dist/**'
+            'dist/**',
         ],
         languageOptions: {
             parser: tsParser,
@@ -88,6 +88,26 @@ module.exports = defineConfig([
                     bracketSameLine: false,
                     bracketSpacing: true,
                     plugins: ['prettier-plugin-organize-imports'],
+                },
+            ],
+        },
+    },
+    {
+        files: ['out/**'],
+        rules: {
+            '@typescript-eslint/no-empty-object-type': 'off',
+            '@typescript-eslint/no-explicit-any': 'off',
+            'prettier/prettier': [
+                'error',
+                {
+                    useTabs: false,
+                    tabWidth: 2,
+                    trailingComma: 'all',
+                    semi: true,
+                    singleQuote: true,
+                    printWidth: 200,
+                    bracketSameLine: false,
+                    bracketSpacing: true,
                 },
             ],
         },

@@ -1,11 +1,12 @@
 import type { GraphReference } from './graph-reference';
+import type { RdfsComment } from './rdfs-comment';
 import type { RdfsLabel } from './rdfs-label';
 
 export type GraphClassItem = {
   '@id': string;
   '@type': string | string[];
   'rdfs:label'?: RdfsLabel;
-  'rdfs:comment'?: string;
+  'rdfs:comment'?: RdfsComment;
   'rdfs:subClassOf'?: GraphReference[] | GraphReference;
   'schema:domainIncludes'?: GraphReference[] | GraphReference;
   'schema:rangeIncludes'?: GraphReference[] | GraphReference;

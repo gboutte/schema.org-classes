@@ -6,6 +6,9 @@ import type { SchemaClass } from './types/schema-class';
 import type { SchemaProperty } from './types/schema-property';
 
 export class SchemaClassBuilder {
+  private readonly RETURN_LINE: string = '\n';
+  private readonly INDENT: string = '  ';
+
   public async generateTypeScript(
     parsedClasses: Record<string, SchemaClass>,
     pathToSave: string,
@@ -102,34 +105,38 @@ export class SchemaClassBuilder {
    * Generate an index.ts file that exports all classes
    */
   private generateIndexFile(classes: Record<string, SchemaClass>): string {
-    let content: string = '/**\n';
-    content += ' * Auto-generated index file for schema.org classes\n';
-    content +=
-      ' * This file exports all generated schema.org TypeScript classes\n';
-    content += ' */\n\n';
+    //Order classes by name
+    const orderedClasses: SchemaClass[] = Object.values(classes).sort(
+      (a: SchemaClass, b: SchemaClass): number => a.name.localeCompare(b.name),
+    );
 
-    content += '\n\n/**\n';
-    content += ' * Interfaces\n';
-    content += ' */\n';
-    for (const schemaClass of Object.values(classes)) {
+    let content: string = `/**${this.RETURN_LINE}`;
+    content += ` * Auto-generated index file for schema.org classes${this.RETURN_LINE}`;
+    content += ` * This file exports all generated schema.org TypeScript classes${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+
+    content += `/**${this.RETURN_LINE}`;
+    content += ` * Interfaces${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    for (const schemaClass of orderedClasses) {
       if (!schemaClass.isEnumeration) {
-        content += `export type { ${schemaClass.name} } from './interfaces/${schemaClass.name}';\n`;
+        content += `export type { ${schemaClass.name} } from './interfaces/${schemaClass.name}';${this.RETURN_LINE}`;
       }
     }
-    content += '\n\n/**\n';
-    content += ' * Schema classes\n';
-    content += ' */\n';
-    for (const schemaClass of Object.values(classes)) {
+    content += `/**${this.RETURN_LINE}`;
+    content += ` * Schema classes${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    for (const schemaClass of orderedClasses) {
       if (!schemaClass.isEnumeration) {
-        content += `export { ${schemaClass.name}Schema } from './classes/${schemaClass.name}.schema';\n`;
+        content += `export { ${schemaClass.name}Schema } from './classes/${schemaClass.name}.schema';${this.RETURN_LINE}`;
       }
     }
-    content += '\n\n/**\n';
-    content += ' * Enums\n';
-    content += ' */\n';
-    for (const schemaClass of Object.values(classes)) {
+    content += `/**${this.RETURN_LINE}`;
+    content += ` * Enums${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    for (const schemaClass of orderedClasses) {
       if (schemaClass.isEnumeration && schemaClass.enumValues.length > 0) {
-        content += `export { ${schemaClass.name} } from './interfaces/${schemaClass.name}';\n`;
+        content += `export { ${schemaClass.name} } from './interfaces/${schemaClass.name}';${this.RETURN_LINE}`;
       }
     }
 
@@ -140,11 +147,13 @@ export class SchemaClassBuilder {
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): string {
-    const name: string = classObj.name;
+    const className: string = classObj.name;
     const listToImport: string[] = [];
 
-    if (typeof name !== 'string') {
-      throw new Error(`Class name is not a string: ${JSON.stringify(name)}`);
+    if (typeof className !== 'string') {
+      throw new Error(
+        `Class name is not a string: ${JSON.stringify(className)}`,
+      );
     }
 
     // Get ALL properties including inherited ones from all parent interfaces
@@ -154,7 +163,26 @@ export class SchemaClassBuilder {
     );
 
     let code: string = '';
-    code += `/**\n * ${classObj.comment || ''}\n */\n`;
+
+    let comment: string;
+    if (classObj.comment) {
+      if (typeof classObj.comment === 'string') {
+        comment = classObj.comment;
+      } else {
+        comment = classObj.comment['@value'];
+      }
+    } else {
+      comment = 'No description available';
+    }
+
+    const commentCodeLines: string[] = this.generateCommentLines(comment);
+
+    // Use JSDoc format for better IDE support
+    code += `/**${this.RETURN_LINE}`;
+    for (const line of commentCodeLines) {
+      code += ` * ${line}${this.RETURN_LINE}`;
+    }
+    code += ` */${this.RETURN_LINE}`;
 
     listToImport.push(
       this.generateImport(
@@ -170,23 +198,51 @@ export class SchemaClassBuilder {
         true,
       ),
     );
-    listToImport.push(this.generateImport(name, `../interfaces/${name}`));
+    listToImport.push(
+      this.generateImport(className, `../interfaces/${className}`),
+    );
 
-    code += `export class ${name}Schema`;
+    code += `export class ${className}Schema`;
 
     const implementClasses: string[] = [];
     implementClasses.push('SchemaInterface');
-    implementClasses.push(name);
+    implementClasses.push(className);
 
     code += ` implements ${implementClasses.join(', ')}`;
 
-    code += ` {\n`;
+    code += ` {${this.RETURN_LINE}`;
 
-    code += `  public schema_metadata: SchemaMetadata = {\n`;
-    code += `    id: '${classObj.id}',\n`;
-    code += `    label: '${classObj.name}',\n`;
-    code += `    subClassOf: [${classObj.parent?.map((parent: GraphReference): string => `'${parent['@id']}'`).join(',') || ''}],\n`;
-    code += `  };\n\n`;
+    code += `${this.INDENT}public schema_metadata: SchemaMetadata = {${this.RETURN_LINE}`;
+    code += `${this.INDENT}${this.INDENT}id: '${classObj.id}',${this.RETURN_LINE}`;
+    code += `${this.INDENT}${this.INDENT}label: '${classObj.name}',${this.RETURN_LINE}`;
+
+    let subClassOfLines: string = '';
+    subClassOfLines += `${this.INDENT}${this.INDENT}subClassOf: [`;
+
+    const subClassList: string[] =
+      classObj.parent?.map(
+        (parent: GraphReference): string => `'${parent['@id']}'`,
+      ) || [];
+
+    let separator: string = ', ';
+    const totalLength:number =
+      subClassOfLines.length + subClassList.join(`, `).length + `],`.length;
+
+    if (totalLength > 200) {
+      separator = `,${this.RETURN_LINE}${this.INDENT}${this.INDENT}${this.INDENT}`;
+      subClassOfLines += `${this.RETURN_LINE}${this.INDENT}${this.INDENT}${this.INDENT}`;
+    }
+    subClassOfLines += subClassList.join(separator);
+    subClassOfLines += `],${this.RETURN_LINE}`;
+
+    code += subClassOfLines;
+
+    code += `${this.INDENT}};`;
+    if (allProps.length > 0) {
+      code += `${this.RETURN_LINE}`;
+    }
+
+    const propertiesLines: string[] = [];
 
     // Add all properties from the interface (including inherited ones)
     for (const prop of allProps) {
@@ -196,27 +252,31 @@ export class SchemaClassBuilder {
         );
       }
 
-      const typeStr: string = this.generatePropertyType(
-        prop.type,
-        name,
-        allClasses,
-        listToImport,
-        `../interfaces/`,
+      propertiesLines.push(
+        this.generatePropertyLine(
+          prop,
+          allClasses,
+          className,
+          listToImport,
+          `../interfaces/`,
+          'public',
+        ),
       );
-
-      // Use JSDoc format for better IDE support
-      code += `  /**\n   * ${prop.comment || 'No description available'}\n   */\n`;
-      // Make properties optional (schema.org properties are typically optional)
-      code += `  public ${prop.name}?: ${typeStr};\n\n`;
     }
 
-    code += '}\n';
+    if (propertiesLines.length > 0) {
+      code += propertiesLines.join(`${this.RETURN_LINE}${this.RETURN_LINE}`);
+    }
+
+    code += `${this.RETURN_LINE}}${this.RETURN_LINE}`;
 
     // Remove duplicates, sort, and filter self-imports
     const uniqueImports: string[] = Array.from(new Set(listToImport)).sort();
 
     if (uniqueImports.length > 0) {
-      code = uniqueImports.join('\n') + '\n\n' + code;
+      code =
+        uniqueImports.join(this.RETURN_LINE) +
+        `${this.RETURN_LINE}${this.RETURN_LINE}${code}`;
     }
 
     return code;
@@ -232,28 +292,34 @@ export class SchemaClassBuilder {
     if (classObj.isEnumeration) {
       // For enumerations, we could generate a type alias or keep as class
       // Keeping as class for consistency, but marking it clearly
-      code += `/** @enumeration */\n`;
+      code += `/** @enumeration */${this.RETURN_LINE}`;
     }
 
     code += `export enum ${name}`;
-    code += ` {\n`;
+    code += ` {`;
+
+    if (classObj.enumValues.length > 0) {
+      code += this.RETURN_LINE;
+    }
 
     for (const enumValue of classObj.enumValues) {
-      code += `  ${enumValue.label}= 'https://schema.org/${enumValue.label}',\n`;
+      code += `${this.INDENT}${enumValue.label} = 'https://schema.org/${enumValue.label}',${this.RETURN_LINE}`;
     }
-    code += `}\n`;
+    code += `}${this.RETURN_LINE}`;
     return code;
   }
   private generateInterfaceTs(
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): string {
-    const name: string = classObj.name;
+    const interfaceName: string = classObj.name;
     const allProps: SchemaProperty[] = classObj.properties || [];
     const listToImport: string[] = [];
 
-    if (typeof name !== 'string') {
-      throw new Error(`Class name is not a string: ${JSON.stringify(name)}`);
+    if (typeof interfaceName !== 'string') {
+      throw new Error(
+        `Class name is not a string: ${JSON.stringify(interfaceName)}`,
+      );
     }
 
     // Filter out properties that are inherited from parent classes
@@ -269,16 +335,35 @@ export class SchemaClassBuilder {
     );
 
     let code: string = '';
-    code += `/**\n * ${classObj.comment || ''}\n */\n`;
+
+    let comment: string;
+    if (classObj.comment) {
+      if (typeof classObj.comment === 'string') {
+        comment = classObj.comment;
+      } else {
+        comment = classObj.comment['@value'];
+      }
+    } else {
+      comment = 'No description available';
+    }
+
+    const commentCodeLines: string[] = this.generateCommentLines(comment);
+
+    // Use JSDoc format for better IDE support
+    code += `/**${this.RETURN_LINE}`;
+    for (const line of commentCodeLines) {
+      code += ` * ${line}${this.RETURN_LINE}`;
+    }
+    code += ` */${this.RETURN_LINE}`;
 
     // Handle enumerations differently
     if (classObj.isEnumeration) {
       // For enumerations, we could generate a type alias or keep as class
       // Keeping as class for consistency, but marking it clearly
-      code += `/** @enumeration */\n`;
+      code += `/** @enumeration */${this.RETURN_LINE}`;
     }
 
-    code += `export interface ${name}`;
+    code += `export interface ${interfaceName}`;
 
     if (classObj.parent !== null) {
       const parents: GraphReference[] = classObj.parent;
@@ -296,7 +381,7 @@ export class SchemaClassBuilder {
         } else {
           if (this.schemaTypeToPrimitive(parent['@id']) === null) {
             console.warn(
-              `Parent class ${parent['@id']} not found for class ${name}`,
+              `Parent class ${parent['@id']} not found for class ${interfaceName}`,
             );
           }
         }
@@ -307,8 +392,13 @@ export class SchemaClassBuilder {
       }
     }
 
-    code += ` {\n`;
+    code += ` {`;
 
+    if (props.length > 0) {
+      code += this.RETURN_LINE;
+    }
+
+    const propertiesLines: string[] = [];
     for (const prop of props) {
       if (typeof prop.name !== 'string') {
         throw new Error(
@@ -316,27 +406,30 @@ export class SchemaClassBuilder {
         );
       }
 
-      const typeStr: string = this.generatePropertyType(
-        prop.type,
-        name,
-        allClasses,
-        listToImport,
-        null,
+      propertiesLines.push(
+        this.generatePropertyLine(
+          prop,
+          allClasses,
+          interfaceName,
+          listToImport,
+          null,
+        ),
       );
-
-      // Use JSDoc format for better IDE support
-      code += `\n  /**\n   * ${prop.comment || 'No description available'}\n   */\n`;
-      // Make properties optional (schema.org properties are typically optional)
-      code += `  ${prop.name}?: ${typeStr};\n`;
     }
 
-    code += '}\n';
+    if (propertiesLines.length > 0) {
+      code += propertiesLines.join(`${this.RETURN_LINE}${this.RETURN_LINE}`);
+      code += this.RETURN_LINE;
+    }
+    code += `}${this.RETURN_LINE}`;
 
     // Remove duplicates, sort, and filter self-imports
     const uniqueImports: string[] = Array.from(new Set(listToImport)).sort();
 
     if (uniqueImports.length > 0) {
-      code = uniqueImports.join('\n') + '\n\n' + code;
+      code =
+        uniqueImports.join(this.RETURN_LINE) +
+        `${this.RETURN_LINE}${this.RETURN_LINE}${code}`;
     }
 
     return code;
@@ -412,16 +505,17 @@ export class SchemaClassBuilder {
     allClasses: Record<string, SchemaClass>,
     listToImport: string[],
     importPath: string | null = null,
-  ): string {
+  ): string[] {
     if (Array.isArray(propType)) {
       const types: string[] = propType
-        .map((ref: GraphReference): string | undefined => {
+        .map((ref: GraphReference): string[] | undefined => {
           const primitive: string | null = this.schemaTypeToPrimitive(
             ref['@id'],
           );
           if (primitive !== null) {
             // For primitives, allow both single value and array
-            return `${primitive} | ${primitive}[]`;
+            // return `${primitive} | ${primitive}[]`;
+            return [primitive, `${primitive}[]`];
           } else {
             const classData: SchemaClass = allClasses[
               ref['@id']
@@ -510,16 +604,17 @@ export class SchemaClassBuilder {
               }
 
               if (types.length === 0) {
-                return 'any';
+                return ['any'];
               }
 
-              return types.join(' | ');
+              return types;
             } else {
               // For class types, allow both single instance and array
-              return `${className} | ${className}[]`;
+              return [className, `${className}[]`];
             }
           }
         })
+        .flat()
         .filter(
           (typeStr: string | undefined): typeStr is string =>
             typeStr !== undefined,
@@ -527,15 +622,14 @@ export class SchemaClassBuilder {
 
       // Remove duplicates from union types
       const uniqueTypes: string[] = Array.from(new Set(types));
-      const typeStr: string = uniqueTypes.join(' | ');
 
-      if (typeStr === '') {
+      if (uniqueTypes.length === 0) {
         console.warn(`Type empty for property`);
-        return 'any';
+        return ['any'];
       }
-      return typeStr;
+      return uniqueTypes;
     } else {
-      return propType;
+      return [propType];
     }
   }
 
@@ -619,5 +713,80 @@ export class SchemaClassBuilder {
     }
 
     return allChildren;
+  }
+
+  private generatePropertyLine(
+    property: SchemaProperty,
+    allClasses: Record<string, SchemaClass>,
+    className: string,
+    listToImport: string[],
+    importPath: string | null,
+    visibility: string = '',
+  ): string {
+    const typesStr: string[] = this.generatePropertyType(
+      property.type,
+      className,
+      allClasses,
+      listToImport,
+      importPath,
+    );
+    let code: string = '';
+
+    let comment: string;
+    if (property.comment) {
+      if (typeof property.comment === 'string') {
+        comment = property.comment;
+      } else {
+        comment = property.comment['@value'];
+      }
+    } else {
+      comment = 'No description available';
+    }
+
+    const commentCodeLines: string[] = this.generateCommentLines(comment);
+
+    // Use JSDoc format for better IDE support
+    code += `  /**${this.RETURN_LINE}`;
+    for (const line of commentCodeLines) {
+      code += `${this.INDENT} * ${line}${this.RETURN_LINE}`;
+    }
+    code += `${this.INDENT} */${this.RETURN_LINE}`;
+
+    let propertyLine: string = `${this.INDENT}${visibility}${visibility.length > 0 ? ' ' : ''}${property.name}?: ${typesStr.join(' | ')};`;
+    if (propertyLine.length > 200) {
+      propertyLine = `${this.INDENT}${visibility}${visibility.length > 0 ? ' ' : ''}${property.name}?:${this.RETURN_LINE}`;
+      propertyLine += `${this.INDENT}${this.INDENT}| ${typesStr.join(`${this.RETURN_LINE}${this.INDENT}${this.INDENT}| `)};`;
+    }
+
+    code += `${propertyLine}`;
+
+    return code;
+  }
+
+  private generateCommentLines(comment: string): string[] {
+    let commentCodeLines: string[] = [];
+    if (comment.length > 80) {
+      //We split the comment into lines of max 80 characters
+      const commentLines: string[] = comment.split(' ');
+      let line: string = '';
+      for (const word of commentLines) {
+        if (line.length + word.length > 80) {
+          commentCodeLines.push(line);
+          line = word;
+        } else {
+          line += ' ' + word;
+        }
+      }
+      commentCodeLines.push(line);
+    }
+    //trim all lines
+    commentCodeLines = commentCodeLines.map((line: string): string =>
+      line.trim(),
+    );
+    //remove empty lines
+    commentCodeLines = commentCodeLines.filter(
+      (line: string): boolean => line.length > 0,
+    );
+    return commentCodeLines;
   }
 }

@@ -67,10 +67,21 @@ export class SchemaParser {
       );
       const isEnum: boolean = this.isEnumeration(graphSchemaClass, classes);
 
+      let comment: string;
+      if (graphSchemaClass['rdfs:comment']) {
+        if (typeof graphSchemaClass['rdfs:comment'] === 'string') {
+          comment = graphSchemaClass['rdfs:comment'];
+        } else {
+          comment = graphSchemaClass['rdfs:comment']['@value'];
+        }
+      } else {
+        comment = 'No description available';
+      }
+
       classIdMap[graphSchemaClass['@id']] = {
         name: name,
         id: graphSchemaClass['@id'] || '',
-        comment: graphSchemaClass['rdfs:comment'] || '',
+        comment: comment,
         parent: parent,
         properties: properties[graphSchemaClass['@id']] || [],
         isEnumeration: isEnum,
@@ -120,7 +131,9 @@ export class SchemaParser {
     graphItems: (GraphClassItem | GraphPropertyItem | GraphEnumItem)[],
   ): Record<string, SchemaProperty[]> {
     const properties: GraphPropertyItem[] = graphItems.filter(
-      (graphElem: GraphClassItem | GraphPropertyItem | GraphEnumItem) => {
+      (
+        graphElem: GraphClassItem | GraphPropertyItem | GraphEnumItem,
+      ): graphElem is GraphPropertyItem => {
         const types: string[] = Array.isArray(graphElem['@type'])
           ? graphElem['@type']
           : [graphElem['@type']];

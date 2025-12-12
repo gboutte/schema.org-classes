@@ -5,7 +5,11 @@
     "start": "tsx index.ts",
     "test": "jest",
     "format": "eslint --fix",
-    "format:check": "eslint"
+    "format:check": "eslint",
+    "format:scripts": "eslint --ignore-pattern \"out/**\" --fix",
+    "format:scripts:check": "eslint --ignore-pattern \"out/**\"",
+    "format:out": "eslint out/**/*.ts --fix",
+    "format:out:check": "eslint out/**/*.ts"
   },
   "author": "",
   "license": "ISC",
