@@ -10,9 +10,9 @@ import {
   PostalAddressSchema,
 } from '../out';
 import { StructuredDataService } from '../services/structured-data.services';
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Event schema', () => {
-  const service = new StructuredDataService();
+  const service: StructuredDataService = new StructuredDataService();
 
   test('Basic', () => {
     const schema: EventSchema = new EventSchema();
@@ -28,7 +28,7 @@ describe('Event schema', () => {
     const jsonString: string = service.getStructuredDataJsonString(schema);
     const jsonData: any = service.getStructuredData(schema);
 
-    const jsonStringified = JSON.stringify(jsonData);
+    const jsonStringified: string = JSON.stringify(jsonData);
 
     expect(jsonStringified).toEqual(jsonString);
 
@@ -43,8 +43,8 @@ describe('Event schema', () => {
       }),
     );
 
-    const jsonParsed = JSON.parse(jsonString);
-    const expectedObject = {
+    const jsonParsed: any = JSON.parse(jsonString);
+    const expectedObject: any = {
       '@context': 'https://schema.org',
       '@type': 'Event',
       description: 'Event Description',
@@ -60,7 +60,7 @@ describe('Event schema', () => {
 
     expect(jsonParsed).toEqual(expectedObject);
 
-    const expectedJsonString = `{"@context":"https://schema.org","@type":"Event","description":"Event Description","eventStatus":"https://schema.org/EventScheduled","image":"https://example.com/image.jpg","name":"Event Name","performer":{"name":"Performer Name","@type":"Person"},"startDate":"2025-12-01T11:00:00.000Z"}`;
+    const expectedJsonString: string = `{"@context":"https://schema.org","@type":"Event","description":"Event Description","eventStatus":"https://schema.org/EventScheduled","image":"https://example.com/image.jpg","name":"Event Name","performer":{"name":"Performer Name","@type":"Person"},"startDate":"2025-12-01T11:00:00.000Z"}`;
 
     expect(jsonString).toEqual(expectedJsonString);
   });
@@ -76,7 +76,7 @@ describe('Event schema', () => {
     schema.eventStatus = EventStatusType.EventScheduled;
     schema.startDate = new Date('2025-12-01T20:00:00.000Z');
 
-    const offer = new OfferSchema();
+    const offer: OfferSchema = new OfferSchema();
     offer.price = 100;
     offer.priceCurrency = 'EUR';
     offer.validFrom = new Date('2025-12-01T11:50:00.000Z');
@@ -85,7 +85,7 @@ describe('Event schema', () => {
 
     schema.offers = [offer];
 
-    const location = new PlaceSchema();
+    const location: PlaceSchema = new PlaceSchema();
     location.name = 'Offline Event';
     location.address = new PostalAddressSchema();
     location.address.streetAddress = '123 Main St';
@@ -101,12 +101,12 @@ describe('Event schema', () => {
 
     const jsonString: string = service.getStructuredDataJsonString(schema);
     const jsonData: any = service.getStructuredData(schema);
-    const jsonParsed = JSON.parse(jsonString);
-    const jsonStringified = JSON.stringify(jsonData);
+    const jsonParsed: any = JSON.parse(jsonString);
+    const jsonStringified: string = JSON.stringify(jsonData);
 
     expect(jsonStringified).toEqual(jsonString);
 
-    const expectedObject = {
+    const expectedObject: any = {
       '@context': 'https://schema.org',
       '@type': 'Event',
       description: 'Event Description',
@@ -145,7 +145,7 @@ describe('Event schema', () => {
 
     expect(jsonParsed).toEqual(expectedObject);
 
-    const expectedJsonString = `{"@context":"https://schema.org","@type":"Event","description":"Event Description","eventAttendanceMode":"https://schema.org/OfflineEventAttendanceMode","eventStatus":"https://schema.org/EventScheduled","image":"https://example.com/image.jpg","location":{"name":"Offline Event","address":{"streetAddress":"123 Main St","addressLocality":"Springfield","addressRegion":"IL","postalCode":"62701","addressCountry":"US","@type":"PostalAddress"},"@type":"Place"},"name":"Event Name","offers":[{"price":100,"priceCurrency":"EUR","validFrom":"2025-12-01T11:50:00.000Z","url":"http://google.fr","availability":"https://schema.org/InStock","@type":"Offer"}],"performer":{"name":"Performer Name","@type":"Person"},"startDate":"2025-12-01T20:00:00.000Z"}`;
+    const expectedJsonString: string = `{"@context":"https://schema.org","@type":"Event","description":"Event Description","eventAttendanceMode":"https://schema.org/OfflineEventAttendanceMode","eventStatus":"https://schema.org/EventScheduled","image":"https://example.com/image.jpg","location":{"name":"Offline Event","address":{"streetAddress":"123 Main St","addressLocality":"Springfield","addressRegion":"IL","postalCode":"62701","addressCountry":"US","@type":"PostalAddress"},"@type":"Place"},"name":"Event Name","offers":[{"price":100,"priceCurrency":"EUR","validFrom":"2025-12-01T11:50:00.000Z","url":"http://google.fr","availability":"https://schema.org/InStock","@type":"Offer"}],"performer":{"name":"Performer Name","@type":"Person"},"startDate":"2025-12-01T20:00:00.000Z"}`;
 
     expect(jsonString).toEqual(expectedJsonString);
   });

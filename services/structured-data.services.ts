@@ -1,15 +1,19 @@
 import type { SchemaInterface } from '../classes/schema.interface';
 
 export class StructuredDataService {
-  private getJsonProperties(schema: SchemaInterface) {
-    const keys = Object.keys(schema);
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private getJsonProperties(schema: SchemaInterface): Record<string, any> {
+    const keys: string[] = Object.keys(schema);
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const jsonProperties: any = {};
     for (const key of keys) {
+      //eslint-disable-next-line @typescript-eslint/no-explicit-any
       const value: any = schema[key as keyof typeof schema];
       if (value !== undefined && key !== 'schema_metadata') {
         // Check if value is an array
         if (Array.isArray(value)) {
-          jsonProperties[key] = value.map((item) => {
+          //eslint-disable-next-line @typescript-eslint/no-explicit-any
+          jsonProperties[key] = value.map((item: any) => {
             // Check if array item implements SchemaInterface
             if (this.isSchemaInterface(item)) {
               return this.getJsonProperties(item);
@@ -32,6 +36,7 @@ export class StructuredDataService {
   /**
    * Check if a value implements SchemaInterface
    */
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
   private isSchemaInterface(value: any): value is SchemaInterface {
     return (
       value !== null &&
@@ -42,20 +47,23 @@ export class StructuredDataService {
     );
   }
 
-  getStructuredData(schema: SchemaInterface): any {
-    const jsonData = this.getJsonProperties(schema);
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
+  public getStructuredData(schema: SchemaInterface): any {
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const jsonData: Record<string, any> = this.getJsonProperties(schema);
     jsonData['@context'] = 'https://schema.org';
 
     //Order data
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orderedData: any = {};
-    const orderedKeys = Object.keys(jsonData).sort();
+    const orderedKeys: string[] = Object.keys(jsonData).sort();
     for (const key of orderedKeys) {
       orderedData[key] = jsonData[key];
     }
 
     return orderedData;
   }
-  getStructuredDataJsonString(schema: SchemaInterface): string {
+  public getStructuredDataJsonString(schema: SchemaInterface): string {
     return JSON.stringify(this.getStructuredData(schema));
   }
 }

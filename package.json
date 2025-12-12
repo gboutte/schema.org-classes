@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "start": "tsx index.ts",
-    "sd": "tsx structured.ts",
-    "test": "jest"
+    "test": "jest",
+    "format": "eslint --fix",
+    "format:check": "eslint"
   },
   "author": "",
   "license": "ISC",

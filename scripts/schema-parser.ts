@@ -3,44 +3,52 @@ import type { GraphClassItem } from './types/graph-class-item';
 import type { GraphEnumItem } from './types/graph-enum-item';
 import type { GraphPropertyItem } from './types/graph-property-item';
 import type { GraphReference } from './types/graph-reference';
-import type { ParsedJsonSchema } from './types/parsed-json-schema';
 import type { RdfsLabel } from './types/rdfs-label';
 import type { SchemaClass } from './types/schema-class';
 import type { SchemaEnum } from './types/schema-enum';
 import type { SchemaProperty } from './types/schema-property';
 
 export class SchemaParser {
-  async parse(file: string): Promise<ParsedJsonSchema> {
+  public async parse(file: string): Promise<Record<string, SchemaClass>> {
     if (!fs.existsSync(file)) {
       throw new Error(`Input file not found: ${file}`);
     }
 
     console.log('Reading schema.org JSON-LD file...');
-    const raw = await fs.promises.readFile(file, { encoding: 'utf8' });
-    const data = JSON.parse(raw);
+    const raw: string = await fs.promises.readFile(file, { encoding: 'utf8' });
+
+    //eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = JSON.parse(raw);
     const graph: (GraphPropertyItem | GraphClassItem | GraphEnumItem)[] =
       data['@graph'];
 
     console.log('Parsing properties and classes...');
-    const enumValues = this.parseEnums(graph);
-    const propertiesRecord = this.parseProperties(graph);
-    const classes = this.parseClasses(graph, propertiesRecord, enumValues);
+    const enumValues: Record<string, SchemaEnum[]> = this.parseEnums(graph);
+    const propertiesRecord: Record<string, SchemaProperty[]> =
+      this.parseProperties(graph);
+    const classes: Record<string, SchemaClass> = this.parseClasses(
+      graph,
+      propertiesRecord,
+      enumValues,
+    );
 
-    return {
-      enums: enumValues,
-      properties: propertiesRecord,
-      classes: classes,
-    };
+    return classes;
   }
-  parseClasses(
+  public parseClasses(
     graphItems: (GraphClassItem | GraphPropertyItem | GraphEnumItem)[],
     properties: Record<string, SchemaProperty[]>,
     enums: Record<string, SchemaEnum[]>,
-  ) {
-    const classes: GraphClassItem[] = graphItems.filter((el) => {
-      const types = Array.isArray(el['@type']) ? el['@type'] : [el['@type']];
-      return types.includes('rdfs:Class');
-    });
+  ): Record<string, SchemaClass> {
+    const classes: GraphClassItem[] = graphItems.filter(
+      (
+        graphElement: GraphPropertyItem | GraphClassItem | GraphEnumItem,
+      ): boolean => {
+        const types: string[] = Array.isArray(graphElement['@type'])
+          ? graphElement['@type']
+          : [graphElement['@type']];
+        return types.includes('rdfs:Class');
+      },
+    );
 
     const classIdMap: Record<string, SchemaClass> = {};
     for (const graphSchemaClass of classes) {
@@ -53,11 +61,11 @@ export class SchemaParser {
         }
       }
 
-      const name = this.extractName(
+      const name: string = this.extractName(
         graphSchemaClass['rdfs:label'],
         graphSchemaClass['@id'],
       );
-      const isEnum = this.isEnumeration(graphSchemaClass, classes);
+      const isEnum: boolean = this.isEnumeration(graphSchemaClass, classes);
 
       classIdMap[graphSchemaClass['@id']] = {
         name: name,
@@ -73,21 +81,26 @@ export class SchemaParser {
     return classIdMap;
   }
 
-  parseEnums(
+  public parseEnums(
     graphItems: (GraphClassItem | GraphPropertyItem | GraphEnumItem)[],
   ): Record<string, SchemaEnum[]> {
-    const enums: GraphEnumItem[] = graphItems.filter((el) => {
-      const types = Array.isArray(el['@type']) ? el['@type'] : [el['@type']];
-      return (
-        types.find((type) => type.startsWith('schema')) && types.length === 1
-      );
-    }) as GraphEnumItem[];
+    const enums: GraphEnumItem[] = graphItems.filter(
+      (graphElem: GraphPropertyItem | GraphClassItem | GraphEnumItem) => {
+        const types: string[] = Array.isArray(graphElem['@type'])
+          ? graphElem['@type']
+          : [graphElem['@type']];
+        return (
+          types.find((type: string) => type.startsWith('schema')) &&
+          types.length === 1
+        );
+      },
+    ) as GraphEnumItem[];
 
     const classEnumsMap: Record<string, SchemaEnum[]> = {};
 
     for (const oneEnum of enums) {
-      const classId = oneEnum['@id'];
-      const type = oneEnum['@type'];
+      const classId: string = oneEnum['@id'];
+      const type: string = oneEnum['@type'];
       if (!classEnumsMap[type]) classEnumsMap[type] = [];
       classEnumsMap[type].push({
         id: classId,
@@ -103,26 +116,33 @@ export class SchemaParser {
   /**
    * Primitive type mappings from schema.org to TypeScript
    */
-  parseProperties(
+  public parseProperties(
     graphItems: (GraphClassItem | GraphPropertyItem | GraphEnumItem)[],
   ): Record<string, SchemaProperty[]> {
-    const properties: GraphPropertyItem[] = graphItems.filter((el) => {
-      const types = Array.isArray(el['@type']) ? el['@type'] : [el['@type']];
-      return types.includes('rdf:Property');
-    });
+    const properties: GraphPropertyItem[] = graphItems.filter(
+      (graphElem: GraphClassItem | GraphPropertyItem | GraphEnumItem) => {
+        const types: string[] = Array.isArray(graphElem['@type'])
+          ? graphElem['@type']
+          : [graphElem['@type']];
+        return types.includes('rdf:Property');
+      },
+    );
 
     const classPropsMap: Record<string, SchemaProperty[]> = {};
 
     for (const prop of properties) {
-      const domain = prop['schema:domainIncludes'];
+      const domain: GraphReference | GraphReference[] | undefined =
+        prop['schema:domainIncludes'];
       if (!domain) continue;
-      const domains = Array.isArray(domain) ? domain : [domain];
+      const domains: GraphReference[] = Array.isArray(domain)
+        ? domain
+        : [domain];
       for (const domain of domains) {
         if (!domain['@id']) continue;
-        const classId = domain['@id'];
+        const classId: string = domain['@id'];
         if (!classPropsMap[classId]) classPropsMap[classId] = [];
 
-        const name = this.extractName(prop['rdfs:label'], prop['@id']);
+        const name: string = this.extractName(prop['rdfs:label'], prop['@id']);
 
         classPropsMap[classId].push({
           name: name,
@@ -146,13 +166,14 @@ export class SchemaParser {
     graphClass: GraphClassItem,
     allClasses: GraphClassItem[],
   ): boolean {
-    const types = Array.isArray(graphClass['@type'])
+    const types: string[] = Array.isArray(graphClass['@type'])
       ? graphClass['@type']
       : [graphClass['@type']];
 
-    const isClass = types.includes('rdfs:Class');
+    const isClass: boolean = types.includes('rdfs:Class');
 
-    const subClassOf = graphClass['rdfs:subClassOf'];
+    const subClassOf: GraphReference | GraphReference[] | undefined =
+      graphClass['rdfs:subClassOf'];
 
     let parents: GraphReference[];
     if (subClassOf !== undefined) {
@@ -167,17 +188,19 @@ export class SchemaParser {
 
     const parentsClassesItems: GraphClassItem[] = [];
     for (const parent of parents) {
-      const parentClass = allClasses.find((el) => el['@id'] === parent['@id']);
+      const parentClass: GraphClassItem | undefined = allClasses.find(
+        (el: GraphClassItem) => el['@id'] === parent['@id'],
+      );
       if (parentClass) {
         parentsClassesItems.push(parentClass);
       }
     }
 
-    const isEnum = parents.some(
-      (parent) => parent['@id'] === 'schema:Enumeration',
+    const isEnum: boolean = parents.some(
+      (parent: GraphReference) => parent['@id'] === 'schema:Enumeration',
     );
-    const isParentEnum = parentsClassesItems.some((parent) =>
-      this.isEnumeration(parent, allClasses),
+    const isParentEnum: boolean = parentsClassesItems.some(
+      (parent: GraphClassItem) => this.isEnumeration(parent, allClasses),
     );
 
     return isClass && (isEnum || isParentEnum);

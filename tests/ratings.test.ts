@@ -7,9 +7,9 @@ import {
   WebApplicationSchema,
 } from '../out';
 import { StructuredDataService } from '../services/structured-data.services';
-
+/* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Event schema', () => {
-  const service = new StructuredDataService();
+  const service: StructuredDataService = new StructuredDataService();
 
   test('Aggregate rating', () => {
     const schema: WebApplicationSchema = new WebApplicationSchema();
@@ -27,14 +27,15 @@ describe('Event schema', () => {
     schema.aggregateRating = aggregateRating;
 
     const jsonString: string = service.getStructuredDataJsonString(schema);
+
     const jsonData: any = service.getStructuredData(schema);
-    const jsonStringified = JSON.stringify(jsonData);
+    const jsonStringified: string = JSON.stringify(jsonData);
 
     expect(jsonStringified).toEqual(jsonString);
 
-    const jsonParsed = JSON.parse(jsonString);
+    const jsonParsed: any = JSON.parse(jsonString);
 
-    const expectedObject = {
+    const expectedObject: any = {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       description: 'Application description',
@@ -83,13 +84,13 @@ describe('Event schema', () => {
 
     const jsonString: string = service.getStructuredDataJsonString(schema);
     const jsonData: any = service.getStructuredData(schema);
-    const jsonStringified = JSON.stringify(jsonData);
+    const jsonStringified: string = JSON.stringify(jsonData);
 
     expect(jsonStringified).toEqual(jsonString);
 
-    const jsonParsed = JSON.parse(jsonString);
+    const jsonParsed: any = JSON.parse(jsonString);
 
-    const expectedObject = {
+    const expectedObject: any = {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       description: 'Application description',
@@ -143,13 +144,13 @@ describe('Event schema', () => {
 
     const jsonString: string = service.getStructuredDataJsonString(schema);
     const jsonData: any = service.getStructuredData(schema);
-    const jsonStringified = JSON.stringify(jsonData);
+    const jsonStringified: any = JSON.stringify(jsonData);
 
     expect(jsonStringified).toEqual(jsonString);
 
-    const jsonParsed = JSON.parse(jsonString);
+    const jsonParsed: any = JSON.parse(jsonString);
 
-    const expectedObject = {
+    const expectedObject: any = {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       description: 'Application description',

@@ -1,99 +1,112 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { GenerateFileResult } from './types/generate-file-result';
 import type { GraphReference } from './types/graph-reference';
-import type { ParsedJsonSchema } from './types/parsed-json-schema';
 import type { SchemaClass } from './types/schema-class';
 import type { SchemaProperty } from './types/schema-property';
 
 export class SchemaClassBuilder {
-  async generateTypeScript(
-    parsedData: ParsedJsonSchema,
+  public async generateTypeScript(
+    parsedClasses: Record<string, SchemaClass>,
     pathToSave: string,
-  ): Promise<void> {
-    const projectRootDirectory = path.dirname(
+  ): Promise<GenerateFileResult> {
+    const projectRootDirectory: string = path.dirname(
       require.main?.filename ?? __dirname,
     );
-    const outDir = path.resolve(projectRootDirectory, pathToSave);
-    const outDirIface = path.join(outDir, 'interfaces');
-    const outDirClasses = path.join(outDir, 'classes');
+    const outDir: string = path.resolve(projectRootDirectory, pathToSave);
+    const outDirIface: string = path.join(outDir, 'interfaces');
+    const outDirClasses: string = path.join(outDir, 'classes');
 
     // Create output directory
     await fs.promises.mkdir(outDir, { recursive: true });
     await fs.promises.mkdir(outDirIface, { recursive: true });
     await fs.promises.mkdir(outDirClasses, { recursive: true });
 
-    const classes = parsedData.classes;
-    const properties = parsedData.properties;
-    const enums = parsedData.enums;
+    let classesCount: number = 0;
+    let enumsCount: number = 0;
+    let interfacesCount: number = 0;
 
-    const classKeys = Object.keys(classes);
+    const classes: Record<string, SchemaClass> = parsedClasses;
+
+    const classKeys: string[] = Object.keys(classes);
     console.log(`Generating ${classKeys.length} TypeScript class files...`);
 
     // Write files in parallel for better performance
-    const writePromises = classKeys.map(async (key) => {
-      const classObj = classes[key];
-      if (classObj !== undefined) {
-        const filePath = path.join(outDirIface, `${classObj.name}.ts`);
-        const filePathClass = path.join(
-          outDirClasses,
-          `${classObj.name}.schema.ts`,
-        );
-        try {
-          if (classObj.isEnumeration) {
-            if (classObj.enumValues.length > 0) {
-              const enumDef = this.generateEnumTs(classObj, classes);
-              await fs.promises.writeFile(filePath, enumDef, {
+    const writePromises: Promise<void>[] = classKeys.map(
+      async (key: string): Promise<void> => {
+        const classObj: SchemaClass | undefined = classes[key];
+        if (classObj !== undefined) {
+          const filePath: string = path.join(
+            outDirIface,
+            `${classObj.name}.ts`,
+          );
+          const filePathClass: string = path.join(
+            outDirClasses,
+            `${classObj.name}.schema.ts`,
+          );
+          try {
+            if (classObj.isEnumeration) {
+              if (classObj.enumValues.length > 0) {
+                const enumDef: string = this.generateEnumTs(classObj);
+                await fs.promises.writeFile(filePath, enumDef, {
+                  encoding: 'utf-8',
+                });
+                enumsCount++;
+              }
+            } else {
+              const ifaceDef: string = this.generateInterfaceTs(
+                classObj,
+                classes,
+              );
+              await fs.promises.writeFile(filePath, ifaceDef, {
                 encoding: 'utf-8',
               });
-            }
-          } else {
-            const ifaceDef = this.generateInterfaceTs(classObj, classes);
-            await fs.promises.writeFile(filePath, ifaceDef, {
-              encoding: 'utf-8',
-            });
 
-            const classDef = this.generateClasseTs(classObj, classes);
-            await fs.promises.writeFile(filePathClass, classDef, {
-              encoding: 'utf-8',
-            });
+              interfacesCount++;
+
+              const classDef: string = this.generateClasseTs(classObj, classes);
+              await fs.promises.writeFile(filePathClass, classDef, {
+                encoding: 'utf-8',
+              });
+
+              classesCount++;
+            }
+            //eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } catch (error: any) {
+            console.error(
+              `Error generating class for ${classObj.name}:`,
+              error?.message,
+            );
+            throw error;
           }
-        } catch (error: any) {
-          console.error(
-            `Error generating class for ${classObj.name}:`,
-            error?.message,
-          );
-          throw error;
         }
-      }
-    });
+      },
+    );
 
     await Promise.all(writePromises);
     // Generate index file for easy imports
     console.log('Generating index file...');
-    const indexContent = this.generateIndexFile(classes);
+    const indexContent: string = this.generateIndexFile(classes);
     await fs.promises.writeFile(path.join(outDir, 'index.ts'), indexContent, {
       encoding: 'utf-8',
     });
+
+    return {
+      classes: classesCount,
+      enums: enumsCount,
+      interfaces: interfacesCount,
+    };
   }
 
   /**
    * Generate an index.ts file that exports all classes
    */
-  generateIndexFile(classes: Record<string, SchemaClass>): string {
-    const classNames = Object.values(classes)
-      .map((c) => c.name)
-      .filter((name) => typeof name === 'string')
-      .sort();
-
-    let content = '/**\n';
+  private generateIndexFile(classes: Record<string, SchemaClass>): string {
+    let content: string = '/**\n';
     content += ' * Auto-generated index file for schema.org classes\n';
     content +=
       ' * This file exports all generated schema.org TypeScript classes\n';
     content += ' */\n\n';
-    //
-    // for (const className of classNames) {
-    //     content += `export type { ${className} } from './interfaces/${className}';\n`;
-    // }
 
     content += '\n\n/**\n';
     content += ' * Interfaces\n';
@@ -127,7 +140,7 @@ export class SchemaClassBuilder {
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): string {
-    const name = classObj.name;
+    const name: string = classObj.name;
     const listToImport: string[] = [];
 
     if (typeof name !== 'string') {
@@ -135,9 +148,12 @@ export class SchemaClassBuilder {
     }
 
     // Get ALL properties including inherited ones from all parent interfaces
-    const allProps = this.getAllProperties(classObj, allClasses);
+    const allProps: SchemaProperty[] = this.getAllProperties(
+      classObj,
+      allClasses,
+    );
 
-    let code = '';
+    let code: string = '';
     code += `/**\n * ${classObj.comment || ''}\n */\n`;
 
     listToImport.push(
@@ -169,7 +185,7 @@ export class SchemaClassBuilder {
     code += `  public schema_metadata: SchemaMetadata = {\n`;
     code += `    id: '${classObj.id}',\n`;
     code += `    label: '${classObj.name}',\n`;
-    code += `    subClassOf: [${classObj.parent?.map((parent) => `'${parent['@id']}'`).join(',') || ''}],\n`;
+    code += `    subClassOf: [${classObj.parent?.map((parent: GraphReference): string => `'${parent['@id']}'`).join(',') || ''}],\n`;
     code += `  };\n\n`;
 
     // Add all properties from the interface (including inherited ones)
@@ -180,7 +196,7 @@ export class SchemaClassBuilder {
         );
       }
 
-      const typeStr = this.generatePropertyType(
+      const typeStr: string = this.generatePropertyType(
         prop.type,
         name,
         allClasses,
@@ -197,7 +213,7 @@ export class SchemaClassBuilder {
     code += '}\n';
 
     // Remove duplicates, sort, and filter self-imports
-    const uniqueImports = Array.from(new Set(listToImport)).sort();
+    const uniqueImports: string[] = Array.from(new Set(listToImport)).sort();
 
     if (uniqueImports.length > 0) {
       code = uniqueImports.join('\n') + '\n\n' + code;
@@ -205,17 +221,12 @@ export class SchemaClassBuilder {
 
     return code;
   }
-  private generateEnumTs(
-    classObj: SchemaClass,
-    allClasses: Record<string, SchemaClass>,
-  ): string {
-    const name = classObj.name;
-    const allProps = classObj.properties || [];
-    const listToImport: string[] = [];
+  private generateEnumTs(classObj: SchemaClass): string {
+    const name: string = classObj.name;
     if (typeof name !== 'string') {
       throw new Error(`Class name is not a string: ${JSON.stringify(name)}`);
     }
-    let code = '';
+    let code: string = '';
 
     // Handle enumerations differently
     if (classObj.isEnumeration) {
@@ -227,11 +238,6 @@ export class SchemaClassBuilder {
     code += `export enum ${name}`;
     code += ` {\n`;
 
-    if (classObj.enumValues.length === 0) {
-      //@todo some enums are empty because it's parents for other enums
-      // console.log(name)
-    }
-
     for (const enumValue of classObj.enumValues) {
       code += `  ${enumValue.label}= 'https://schema.org/${enumValue.label}',\n`;
     }
@@ -242,8 +248,8 @@ export class SchemaClassBuilder {
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): string {
-    const name = classObj.name;
-    const allProps = classObj.properties || [];
+    const name: string = classObj.name;
+    const allProps: SchemaProperty[] = classObj.properties || [];
     const listToImport: string[] = [];
 
     if (typeof name !== 'string') {
@@ -256,11 +262,13 @@ export class SchemaClassBuilder {
       allClasses,
     );
     const inheritedPropNames: Set<string> = new Set(
-      Array.from(inheritedProp).map((prop) => prop.name),
+      Array.from(inheritedProp).map((prop: SchemaProperty) => prop.name),
     );
-    const props = allProps.filter((prop) => !inheritedPropNames.has(prop.name));
+    const props: SchemaProperty[] = allProps.filter(
+      (prop: SchemaProperty): boolean => !inheritedPropNames.has(prop.name),
+    );
 
-    let code = '';
+    let code: string = '';
     code += `/**\n * ${classObj.comment || ''}\n */\n`;
 
     // Handle enumerations differently
@@ -273,7 +281,7 @@ export class SchemaClassBuilder {
     code += `export interface ${name}`;
 
     if (classObj.parent !== null) {
-      const parents = classObj.parent;
+      const parents: GraphReference[] = classObj.parent;
       const parentClasses: string[] = [];
       for (const parent of parents) {
         const parentObj: SchemaClass | undefined = allClasses[parent['@id']];
@@ -301,12 +309,6 @@ export class SchemaClassBuilder {
 
     code += ` {\n`;
 
-    // code += `  public schema_metadata: SchemaMetadata = {\n`;
-    // code += `    id: '${classObj.id}',\n`;
-    // code += `    label: '${classObj.name}',\n`;
-    // code += `    subClassOf: '${classObj.parent?.["@id"]}',\n`;
-    // code += `  };\n`;
-
     for (const prop of props) {
       if (typeof prop.name !== 'string') {
         throw new Error(
@@ -314,7 +316,7 @@ export class SchemaClassBuilder {
         );
       }
 
-      const typeStr = this.generatePropertyType(
+      const typeStr: string = this.generatePropertyType(
         prop.type,
         name,
         allClasses,
@@ -331,7 +333,7 @@ export class SchemaClassBuilder {
     code += '}\n';
 
     // Remove duplicates, sort, and filter self-imports
-    const uniqueImports = Array.from(new Set(listToImport)).sort();
+    const uniqueImports: string[] = Array.from(new Set(listToImport)).sort();
 
     if (uniqueImports.length > 0) {
       code = uniqueImports.join('\n') + '\n\n' + code;
@@ -347,9 +349,15 @@ export class SchemaClassBuilder {
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): SchemaProperty[] {
-    const allPropsMap = new Map<string, SchemaProperty>();
+    const allPropsMap: Map<string, SchemaProperty> = new Map<
+      string,
+      SchemaProperty
+    >();
 
-    const inheritedProps = this.getInheritedPropertyNames(classObj, allClasses);
+    const inheritedProps: Set<SchemaProperty> = this.getInheritedPropertyNames(
+      classObj,
+      allClasses,
+    );
     for (const prop of inheritedProps) {
       allPropsMap.set(prop.name, prop);
     }
@@ -406,9 +414,11 @@ export class SchemaClassBuilder {
     importPath: string | null = null,
   ): string {
     if (Array.isArray(propType)) {
-      const types = propType
-        .map((ref) => {
-          const primitive = this.schemaTypeToPrimitive(ref['@id']);
+      const types: string[] = propType
+        .map((ref: GraphReference): string | undefined => {
+          const primitive: string | null = this.schemaTypeToPrimitive(
+            ref['@id'],
+          );
           if (primitive !== null) {
             // For primitives, allow both single value and array
             return `${primitive} | ${primitive}[]`;
@@ -416,8 +426,8 @@ export class SchemaClassBuilder {
             const classData: SchemaClass = allClasses[
               ref['@id']
             ] as SchemaClass;
-            const className = classData?.name;
-            const isEnum = classData?.isEnumeration ?? false;
+            const className: string = classData?.name;
+            const isEnum: boolean = classData?.isEnumeration ?? false;
             if (className === undefined) {
               console.error('Type not found for reference:', ref);
               return undefined;
@@ -435,42 +445,56 @@ export class SchemaClassBuilder {
               }
             }
             if (isEnum) {
-              const parents = this.getAllParents(
+              const parents: GraphReference[] = this.getAllParents(
                 classData as SchemaClass,
                 allClasses,
               );
-              const children = this.getAllChildren(
+              const children: GraphReference[] = this.getAllChildren(
                 classData as SchemaClass,
                 allClasses,
               );
 
-              const enumParents = parents
-                .filter((parent) => {
-                  const classData = allClasses[parent['@id']];
+              const enumParents: string[] = parents
+                .filter((parent: GraphReference): boolean => {
+                  const classData: SchemaClass | undefined =
+                    allClasses[parent['@id']];
                   return (
-                    classData &&
+                    classData !== undefined &&
                     classData.isEnumeration &&
                     classData.enumValues.length > 0
                   );
                 })
-                .map((parent) => allClasses[parent['@id']]?.name);
+                .map(
+                  (parent: GraphReference): string | undefined =>
+                    allClasses[parent['@id']]?.name,
+                )
+                .filter(
+                  (classname: string | undefined): classname is string =>
+                    classname !== undefined,
+                );
 
-              const enumChildren = children
-                .filter((child) => {
-                  const classData = allClasses[child['@id']];
+              const enumChildren: string[] = children
+                .filter((child: GraphReference): boolean => {
+                  const classData: SchemaClass | undefined =
+                    allClasses[child['@id']];
 
                   return (
-                    classData &&
+                    classData !== undefined &&
                     classData.isEnumeration &&
                     classData.enumValues.length > 0
                   );
                 })
-                .map((child) => allClasses[child['@id']]?.name);
+                .map(
+                  (child: GraphReference): string | undefined =>
+                    allClasses[child['@id']]?.name,
+                )
+                .filter(
+                  (classname: string | undefined): classname is string =>
+                    classname !== undefined,
+                );
 
               // We get the parents enum also
-              const types = [...enumParents, ...enumChildren].filter(
-                (classname) => classname !== undefined,
-              );
+              const types: string[] = [...enumParents, ...enumChildren];
 
               for (const typeToImport of types) {
                 listToImport.push(
@@ -496,11 +520,14 @@ export class SchemaClassBuilder {
             }
           }
         })
-        .filter((typeStr) => typeStr !== undefined);
+        .filter(
+          (typeStr: string | undefined): typeStr is string =>
+            typeStr !== undefined,
+        );
 
       // Remove duplicates from union types
-      const uniqueTypes = Array.from(new Set(types));
-      const typeStr = uniqueTypes.join(' | ');
+      const uniqueTypes: string[] = Array.from(new Set(types));
+      const typeStr: string = uniqueTypes.join(' | ');
 
       if (typeStr === '') {
         console.warn(`Type empty for property`);
@@ -529,7 +556,7 @@ export class SchemaClassBuilder {
     classObj: SchemaClass,
     allClasses: Record<string, SchemaClass>,
   ): Set<SchemaProperty> {
-    const inheritedProps = new Set<SchemaProperty>();
+    const inheritedProps: Set<SchemaProperty> = new Set<SchemaProperty>();
     const allParents: GraphReference[] = this.getAllParents(
       classObj,
       allClasses,
@@ -551,14 +578,17 @@ export class SchemaClassBuilder {
     allClasses: Record<string, SchemaClass>,
   ): GraphReference[] {
     const allParents: GraphReference[] = [];
-    const parents = classObj.parent;
+    const parents: GraphReference[] | null = classObj.parent;
     if (parents) {
       allParents.push(...parents);
       for (const parent of parents) {
         const parentClass: SchemaClass | undefined = allClasses[parent['@id']];
         if (!parentClass) break;
 
-        const parentParents = this.getAllParents(parentClass, allClasses);
+        const parentParents: GraphReference[] = this.getAllParents(
+          parentClass,
+          allClasses,
+        );
         allParents.push(...parentParents);
       }
     }
@@ -573,9 +603,13 @@ export class SchemaClassBuilder {
     const allChildren: GraphReference[] = [];
 
     for (const schemaClass of Object.values(allClasses)) {
-      const parents = schemaClass.parent;
+      const parents: GraphReference[] | null = schemaClass.parent;
       if (parents) {
-        if (parents.some((parent) => parent['@id'] === classObj.id)) {
+        if (
+          parents.some(
+            (parent: GraphReference): boolean => parent['@id'] === classObj.id,
+          )
+        ) {
           allChildren.push({
             '@id': schemaClass.id,
           });
