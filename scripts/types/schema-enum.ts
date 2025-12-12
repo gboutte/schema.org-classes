@@ -1,6 +1,6 @@
 export type SchemaEnum = {
-    id:string;
-    type:string;
-    label:string;
-    comment:string;
-}
+  id: string;
+  type: string;
+  label: string;
+  comment: string;
+};

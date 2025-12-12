@@ -1,4 +1,6 @@
-export type RdfsLabel = string | {
-    "@language": string,
-    "@value": string
-}
+export type RdfsLabel =
+  | string
+  | {
+      '@language': string;
+      '@value': string;
+    };

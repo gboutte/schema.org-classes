@@ -1,5 +1,5 @@
-import type {SchemaMetadata} from "./schema-metadata";
+import type { SchemaMetadata } from './schema-metadata';
 
-export interface SchemaInterface{
-    schema_metadata:SchemaMetadata;
+export interface SchemaInterface {
+  schema_metadata: SchemaMetadata;
 }

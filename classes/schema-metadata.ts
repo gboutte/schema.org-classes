@@ -1,5 +1,5 @@
 export type SchemaMetadata = {
-    id:string;
-    label:string;
-    subClassOf:string[]
-}
+  id: string;
+  label: string;
+  subClassOf: string[];
+};

@@ -1,3 +1,3 @@
 export type GraphReference = {
-    "@id": string;
-}
+  '@id': string;
+};
