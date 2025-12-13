@@ -88,8 +88,36 @@ export class SchemaClassBuilder {
 
     await Promise.all(writePromises);
     // Generate index file for easy imports
-    console.log('Generating index file...');
-    const indexContent: string = this.generateIndexFile(classes);
+    console.log('Generating indexes file...');
+    const indexClassesContent: string = this.generateClassesIndexFile(classes);
+    await fs.promises.writeFile(
+      path.join(outDir, 'classes.ts'),
+      indexClassesContent,
+      {
+        encoding: 'utf-8',
+      },
+    );
+
+    const indexInterfacesContent: string =
+      this.generateInterfaceIndexFile(classes);
+    await fs.promises.writeFile(
+      path.join(outDir, 'interfaces.ts'),
+      indexInterfacesContent,
+      {
+        encoding: 'utf-8',
+      },
+    );
+
+    const indexEnumsContent: string = this.generateEnumIndexFile(classes);
+    await fs.promises.writeFile(
+      path.join(outDir, 'enums.ts'),
+      indexEnumsContent,
+      {
+        encoding: 'utf-8',
+      },
+    );
+
+    const indexContent: string = this.generateIndexFile();
     await fs.promises.writeFile(path.join(outDir, 'index.ts'), indexContent, {
       encoding: 'utf-8',
     });
@@ -101,36 +129,13 @@ export class SchemaClassBuilder {
     };
   }
 
-  /**
-   * Generate an index.ts file that exports all classes
-   */
-  private generateIndexFile(classes: Record<string, SchemaClass>): string {
+  private generateEnumIndexFile(classes: Record<string, SchemaClass>): string {
     //Order classes by name
     const orderedClasses: SchemaClass[] = Object.values(classes).sort(
       (a: SchemaClass, b: SchemaClass): number => a.name.localeCompare(b.name),
     );
 
-    let content: string = `/**${this.RETURN_LINE}`;
-    content += ` * Auto-generated index file for schema.org classes${this.RETURN_LINE}`;
-    content += ` * This file exports all generated schema.org TypeScript classes${this.RETURN_LINE}`;
-    content += ` */${this.RETURN_LINE}`;
-
-    content += `/**${this.RETURN_LINE}`;
-    content += ` * Interfaces${this.RETURN_LINE}`;
-    content += ` */${this.RETURN_LINE}`;
-    for (const schemaClass of orderedClasses) {
-      if (!schemaClass.isEnumeration) {
-        content += `export type { ${schemaClass.name} } from './interfaces/${schemaClass.name}';${this.RETURN_LINE}`;
-      }
-    }
-    content += `/**${this.RETURN_LINE}`;
-    content += ` * Schema classes${this.RETURN_LINE}`;
-    content += ` */${this.RETURN_LINE}`;
-    for (const schemaClass of orderedClasses) {
-      if (!schemaClass.isEnumeration) {
-        content += `export { ${schemaClass.name}Schema } from './classes/${schemaClass.name}.schema';${this.RETURN_LINE}`;
-      }
-    }
+    let content: string = '';
     content += `/**${this.RETURN_LINE}`;
     content += ` * Enums${this.RETURN_LINE}`;
     content += ` */${this.RETURN_LINE}`;
@@ -139,6 +144,60 @@ export class SchemaClassBuilder {
         content += `export { ${schemaClass.name} } from './interfaces/${schemaClass.name}';${this.RETURN_LINE}`;
       }
     }
+
+    return content;
+  }
+  private generateClassesIndexFile(
+    classes: Record<string, SchemaClass>,
+  ): string {
+    //Order classes by name
+    const orderedClasses: SchemaClass[] = Object.values(classes).sort(
+      (a: SchemaClass, b: SchemaClass): number => a.name.localeCompare(b.name),
+    );
+    let content: string = '';
+
+    content += `/**${this.RETURN_LINE}`;
+    content += ` * Schema classes${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    for (const schemaClass of orderedClasses) {
+      if (!schemaClass.isEnumeration) {
+        content += `export { ${schemaClass.name}Schema } from './classes/${schemaClass.name}.schema';${this.RETURN_LINE}`;
+      }
+    }
+
+    return content;
+  }
+  private generateInterfaceIndexFile(
+    classes: Record<string, SchemaClass>,
+  ): string {
+    //Order classes by name
+    const orderedClasses: SchemaClass[] = Object.values(classes).sort(
+      (a: SchemaClass, b: SchemaClass): number => a.name.localeCompare(b.name),
+    );
+
+    let content: string = '';
+    content += `/**${this.RETURN_LINE}`;
+    content += ` * Interfaces${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    for (const schemaClass of orderedClasses) {
+      if (!schemaClass.isEnumeration) {
+        content += `export type { ${schemaClass.name} } from './interfaces/${schemaClass.name}';${this.RETURN_LINE}`;
+      }
+    }
+    return content;
+  }
+
+  /**
+   * Generate an index.ts file that exports all classes
+   */
+  private generateIndexFile(): string {
+    let content: string = `/**${this.RETURN_LINE}`;
+    content += ` * Auto-generated index file for schema.org classes${this.RETURN_LINE}`;
+    content += ` * This file exports all generated schema.org TypeScript classes${this.RETURN_LINE}`;
+    content += ` */${this.RETURN_LINE}`;
+    content += `export * from './classes';${this.RETURN_LINE}`;
+    content += `export * from './interfaces';${this.RETURN_LINE}`;
+    content += `export * from './enums';${this.RETURN_LINE}`;
 
     return content;
   }
