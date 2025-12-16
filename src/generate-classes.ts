@@ -1,7 +1,7 @@
-import { SchemaClassBuilder } from './scripts/schema-class-builder';
-import { SchemaParser } from './scripts/schema-parser';
-import type { GenerateFileResult } from './scripts/types/generate-file-result';
-import type { SchemaClass } from './scripts/types/schema-class';
+import type {GenerateFileResult} from "./scripts/types/generate-file-result";
+import {SchemaClassBuilder} from "./scripts/schema-class-builder";
+import {SchemaParser} from "./scripts/schema-parser";
+import type {SchemaClass} from "./scripts/types/schema-class";
 
 async function main(): Promise<void> {
   const jsonldPath: string = 'schemaorg-current-https.jsonld';

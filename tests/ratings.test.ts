@@ -5,8 +5,8 @@ import {
   ItemAvailability,
   OfferSchema,
   WebApplicationSchema,
-} from '../out';
-import { StructuredDataService } from '../services/structured-data.services';
+} from '../src/out';
+import { StructuredDataService } from '../src/services/structured-data.services';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 describe('Event schema', () => {
   const service: StructuredDataService = new StructuredDataService();

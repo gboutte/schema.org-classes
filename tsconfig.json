@@ -2,9 +2,7 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
-
+    "outDir": "dist",
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
     "forceConsistentCasingInFileNames": true,
@@ -53,5 +51,5 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+  },
 }
