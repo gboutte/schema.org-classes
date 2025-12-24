@@ -1,5 +1,4 @@
-import type {SchemaInterface} from "../classes";
-
+import type { SchemaInterface } from '../classes';
 
 export class StructuredDataService {
   //eslint-disable-next-line @typescript-eslint/no-explicit-any

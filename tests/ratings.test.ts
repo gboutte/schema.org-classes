@@ -8,7 +8,7 @@ import {
 } from '../src/out';
 import { StructuredDataService } from '../src/services/structured-data.services';
 /* eslint-disable @typescript-eslint/no-explicit-any */
-describe('Event schema', () => {
+describe('Rating schema', () => {
   const service: StructuredDataService = new StructuredDataService();
 
   test('Aggregate rating', () => {

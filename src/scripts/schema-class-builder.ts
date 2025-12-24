@@ -666,10 +666,20 @@ export class SchemaClassBuilder {
                 return ['any'];
               }
 
+              if (ref['@id'] === 'schema:Thing') {
+                types.push('string');
+              }
+
               return types;
             } else {
+              const types: string[] = [];
+              if (ref['@id'] === 'schema:Thing') {
+                types.push('string');
+              }
+              types.push(className);
+              types.push(`${className}[]`);
               // For class types, allow both single instance and array
-              return [className, `${className}[]`];
+              return types;
             }
           }
         })

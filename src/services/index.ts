@@ -1,1 +1,1 @@
-export {StructuredDataService} from './structured-data.services';
+export { StructuredDataService } from './structured-data.services';
