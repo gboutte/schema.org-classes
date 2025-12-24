@@ -1,7 +1,7 @@
 {
   "name": "@gboutte/schema.org-classes",
   "description": "Schema.org classes for TypeScript, with a service to generate the JSON-LD.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "start": "tsx src/generate-classes.ts",
     "test": "jest",
